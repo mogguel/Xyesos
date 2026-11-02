@@ -1,0 +1,482 @@
+--[[
+    FIND MY × RIVALS
+    Halloween Edition
+    by find my
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- ==================== SETTINGS ====================
+local Settings = {
+    -- Aim
+    Aimbot = false,
+    SilentAim = false,
+    AimSmooth = 0.15,
+    AimFOV = 250,
+    AimPart = "Head",
+
+    -- ESP
+    ESP = true,
+    Tracers = true,
+    UmbrellaESP = true,
+    EnemyAlert = true,
+
+    -- Movement
+    Speed = 16,
+    SpeedEnabled = false,
+
+    -- Misc
+    AntiKick = true,
+}
+
+local CurrentTab = "Aim"
+local ClosestEnemy = nil
+
+-- ==================== GUI (Halloween Style) ====================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FindMyRivals"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+-- Главное окно
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 340, 0, 460)
+Main.Position = UDim2.new(0.5, -170, 0.5, -230)
+Main.BackgroundColor3 = Color3.fromRGB(18, 8, 12)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 100, 20)
+MainStroke.Thickness = 2
+MainStroke.Transparency = 0.25
+MainStroke.Parent = Main
+
+-- Заголовок
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 50)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 12, 18)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Main
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 14)
+TitleCorner.Parent = TitleBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 16, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🎃 FIND MY  •  RIVALS"
+Title.TextColor3 = Color3.fromRGB(255, 140, 40)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -40, 0, 10)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 40)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseBtn
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Вкладки
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, -20, 0, 36)
+TabBar.Position = UDim2.new(0, 10, 0, 58)
+TabBar.BackgroundTransparency = 1
+TabBar.Parent = Main
+
+local function CreateTabButton(name, xPos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 100, 0, 32)
+    btn.Position = UDim2.new(0, xPos, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 18, 25)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(220, 180, 140)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = TabBar
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    return btn
+end
+
+local AimTabBtn = CreateTabButton("AIM", 0)
+local ESPTabBtn = CreateTabButton("ESP", 110)
+local MiscTabBtn = CreateTabButton("MISC", 220)
+
+-- Контейнеры вкладок
+local AimFrame = Instance.new("Frame")
+AimFrame.Size = UDim2.new(1, -20, 1, -110)
+AimFrame.Position = UDim2.new(0, 10, 0, 100)
+AimFrame.BackgroundTransparency = 1
+AimFrame.Visible = true
+AimFrame.Parent = Main
+
+local ESPFrame = Instance.new("Frame")
+ESPFrame.Size = UDim2.new(1, -20, 1, -110)
+ESPFrame.Position = UDim2.new(0, 10, 0, 100)
+ESPFrame.BackgroundTransparency = 1
+ESPFrame.Visible = false
+ESPFrame.Parent = Main
+
+local MiscFrame = Instance.new("Frame")
+MiscFrame.Size = UDim2.new(1, -20, 1, -110)
+MiscFrame.Position = UDim2.new(0, 10, 0, 100)
+MiscFrame.BackgroundTransparency = 1
+MiscFrame.Visible = false
+MiscFrame.Parent = Main
+
+local function SwitchTab(tab)
+    AimFrame.Visible = (tab == "Aim")
+    ESPFrame.Visible = (tab == "ESP")
+    MiscFrame.Visible = (tab == "Misc")
+    CurrentTab = tab
+
+    AimTabBtn.BackgroundColor3 = (tab == "Aim") and Color3.fromRGB(255, 100, 30) or Color3.fromRGB(40, 18, 25)
+    ESPTabBtn.BackgroundColor3 = (tab == "ESP") and Color3.fromRGB(255, 100, 30) or Color3.fromRGB(40, 18, 25)
+    MiscTabBtn.BackgroundColor3 = (tab == "Misc") and Color3.fromRGB(255, 100, 30) or Color3.fromRGB(40, 18, 25)
+end
+
+AimTabBtn.MouseButton1Click:Connect(function() SwitchTab("Aim") end)
+ESPTabBtn.MouseButton1Click:Connect(function() SwitchTab("ESP") end)
+MiscTabBtn.MouseButton1Click:Connect(function() SwitchTab("Misc") end)
+
+-- Функция создания тоггла
+local function CreateToggle(parent, text, y, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 36)
+    frame.Position = UDim2.new(0, 0, 0, y)
+    frame.BackgroundColor3 = Color3.fromRGB(28, 14, 20)
+    frame.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(240, 220, 200)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 52, 0, 24)
+    btn.Position = UDim2.new(1, -62, 0.5, -12)
+    btn.BackgroundColor3 = default and Color3.fromRGB(255, 120, 40) or Color3.fromRGB(50, 30, 35)
+    btn.Text = default and "ON" or "OFF"
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = frame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+
+    local state = default
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = state and "ON" or "OFF"
+        TweenService:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = state and Color3.fromRGB(255, 120, 40) or Color3.fromRGB(50, 30, 35)
+        }):Play()
+        callback(state)
+    end)
+end
+
+-- AIM вкладка
+CreateToggle(AimFrame, "Aimbot", 0, false, function(v) Settings.Aimbot = v end)
+CreateToggle(AimFrame, "Silent Aim", 44, false, function(v) Settings.SilentAim = v end)
+
+-- ESP вкладка
+CreateToggle(ESPFrame, "ESP (Зонтик)", 0, true, function(v) Settings.UmbrellaESP = v end)
+CreateToggle(ESPFrame, "Tracers (зелёные)", 44, true, function(v) Settings.Tracers = v end)
+CreateToggle(ESPFrame, "Уведомление ВРАГИ РЯДОМ", 88, true, function(v) Settings.EnemyAlert = v end)
+
+-- MISC вкладка
+CreateToggle(MiscFrame, "Speed Hack", 0, false, function(v) Settings.SpeedEnabled = v end)
+CreateToggle(MiscFrame, "Anti Kick / Anti Ban", 44, true, function(v) Settings.AntiKick = v end)
+
+-- Speed Box
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(1, 0, 0, 20)
+SpeedLabel.Position = UDim2.new(0, 0, 0, 95)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Скорость: 16"
+SpeedLabel.TextColor3 = Color3.fromRGB(220, 180, 140)
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.TextSize = 13
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Parent = MiscFrame
+
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(1, 0, 0, 32)
+SpeedBox.Position = UDim2.new(0, 0, 0, 118)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(35, 18, 25)
+SpeedBox.Text = "16"
+SpeedBox.TextColor3 = Color3.new(1,1,1)
+SpeedBox.Font = Enum.Font.Gotham
+SpeedBox.TextSize = 14
+SpeedBox.PlaceholderText = "Введи скорость"
+SpeedBox.Parent = MiscFrame
+
+local SpeedCorner = Instance.new("UICorner")
+SpeedCorner.CornerRadius = UDim.new(0, 8)
+SpeedCorner.Parent = SpeedBox
+
+SpeedBox.FocusLost:Connect(function()
+    local num = tonumber(SpeedBox.Text)
+    if num and num > 0 then
+        Settings.Speed = num
+        SpeedLabel.Text = "Скорость: " .. num
+    end
+end)
+
+-- ==================== УВЕДОМЛЕНИЕ "ВРАГИ РЯДОМ!" ====================
+local AlertLabel = Instance.new("TextLabel")
+AlertLabel.Size = UDim2.new(0, 320, 0, 40)
+AlertLabel.Position = UDim2.new(0.5, -160, 0, 20)
+AlertLabel.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+AlertLabel.Text = "ВРАГИ РЯДОМ!"
+AlertLabel.TextColor3 = Color3.new(1, 1, 1)
+AlertLabel.Font = Enum.Font.GothamBlack
+AlertLabel.TextSize = 22
+AlertLabel.Visible = false
+AlertLabel.Parent = ScreenGui
+
+local AlertCorner = Instance.new("UICorner")
+AlertCorner.CornerRadius = UDim.new(0, 8)
+AlertCorner.Parent = AlertLabel
+
+-- ==================== НАДПИСЬ НАД ГОЛОВОЙ ====================
+local function CreateNameTag()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    if head:FindFirstChild("FindMyTag") then
+        head.FindMyTag:Destroy()
+    end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "FindMyTag"
+    bb.Adornee = head
+    bb.Size = UDim2.new(0, 180, 0, 40)
+    bb.StudsOffset = Vector3.new(0, 2.6, 0)
+    bb.AlwaysOnTop = true
+    bb.Parent = head
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "by find my"
+    label.TextColor3 = Color3.fromRGB(255, 140, 40)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 16
+    label.TextStrokeTransparency = 0.3
+    label.Parent = bb
+end
+
+-- ==================== ФУНКЦИИ ====================
+
+local function GetClosestEnemy()
+    local closest = nil
+    local shortest = math.huge
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil, math.huge end
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 then
+            -- Простая проверка команды (если есть Team)
+            if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
+                continue
+            end
+
+            local dist = (plr.Character.HumanoidRootPart.Position - myRoot.Position).Magnitude
+            if dist < shortest then
+                shortest = dist
+                closest = plr
+            end
+        end
+    end
+    return closest, shortest
+end
+
+-- ESP Зонтик + Tracers
+local UmbrellaFolder = Instance.new("Folder")
+UmbrellaFolder.Name = "UmbrellaESP"
+UmbrellaFolder.Parent = ScreenGui
+
+local TracerLine = Drawing and Drawing.new("Line") or nil
+if TracerLine then
+    TracerLine.Thickness = 1.5
+    TracerLine.Color = Color3.fromRGB(0, 255, 100)
+    TracerLine.Visible = false
+end
+
+RunService.RenderStepped:Connect(function()
+    -- Очистка старых зонтиков
+    for _, v in pairs(UmbrellaFolder:GetChildren()) do
+        v:Destroy()
+    end
+
+    local enemy, dist = GetClosestEnemy()
+    ClosestEnemy = enemy
+
+    -- Уведомление
+    if Settings.EnemyAlert and enemy and dist <= 15 then
+        AlertLabel.Visible = true
+    else
+        AlertLabel.Visible = false
+    end
+
+    -- Зонтик
+    if Settings.UmbrellaESP and enemy and enemy.Character and enemy.Character:FindFirstChild("Head") then
+        local head = enemy.Character.Head
+        local bb = Instance.new("BillboardGui")
+        bb.Size = UDim2.new(0, 60, 0, 60)
+        bb.StudsOffset = Vector3.new(0, 3.2, 0)
+        bb.AlwaysOnTop = true
+        bb.Adornee = head
+        bb.Parent = UmbrellaFolder
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = "☂️"
+        label.TextColor3 = Color3.fromRGB(0, 255, 120)
+        label.TextSize = 32
+        label.Font = Enum.Font.GothamBold
+        label.Parent = bb
+
+        -- Неоновое свечение
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(0, 255, 140)
+        stroke.Thickness = 2
+        stroke.Transparency = 0.3
+        stroke.Parent = label
+    end
+
+    -- Tracer
+    if TracerLine then
+        if Settings.Tracers and enemy and enemy.Character and enemy.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local from = Camera:WorldToViewportPoint(LocalPlayer.Character.HumanoidRootPart.Position)
+            local to = Camera:WorldToViewportPoint(enemy.Character.HumanoidRootPart.Position)
+            if from.Z > 0 and to.Z > 0 then
+                TracerLine.From = Vector2.new(from.X, from.Y)
+                TracerLine.To = Vector2.new(to.X, to.Y)
+                TracerLine.Visible = true
+            else
+                TracerLine.Visible = false
+            end
+        else
+            TracerLine.Visible = false
+        end
+    end
+end)
+
+-- Aimbot + Silent Aim
+RunService.RenderStepped:Connect(function()
+    if not (Settings.Aimbot or Settings.SilentAim) then return end
+    if not ClosestEnemy or not ClosestEnemy.Character then return end
+
+    local targetPart = ClosestEnemy.Character:FindFirstChild(Settings.AimPart) or ClosestEnemy.Character:FindFirstChild("HumanoidRootPart")
+    if not targetPart then return end
+
+    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+    if not onScreen then return end
+
+    local distToCrosshair = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+    if distToCrosshair > Settings.AimFOV then return end
+
+    if Settings.Aimbot then
+        local lookAt = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+        Camera.CFrame = Camera.CFrame:Lerp(lookAt, Settings.AimSmooth)
+    end
+
+    if Settings.SilentAim then
+        -- Базовый silent (камера + лёгкий lock)
+        local lookAt = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+        Camera.CFrame = Camera.CFrame:Lerp(lookAt, 0.35)
+    end
+end)
+
+-- Speed
+RunService.Heartbeat:Connect(function()
+    if Settings.SpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = Settings.Speed
+    end
+end)
+
+-- Anti Kick
+if Settings.AntiKick then
+    local mt = getrawmetatable(game)
+    local old = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "kick" then
+            return nil
+        end
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+end
+
+-- Anti AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- NameTag при спавне
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    CreateNameTag()
+end)
+
+if LocalPlayer.Character then
+    CreateNameTag()
+end
+
+print("✅ Find My Rivals | Halloween Edition загружен")
+print("by find my")
